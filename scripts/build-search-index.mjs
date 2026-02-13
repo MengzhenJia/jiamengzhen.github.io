@@ -81,7 +81,7 @@ async function fetchAllPages(notion, databaseId) {
       },
       sorts: [
         {
-          property: "created",
+          timestamp: "created_time",
           direction: "descending",
         },
       ],
