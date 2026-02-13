@@ -14,9 +14,9 @@ npm install
 2. 设置环境变量
 ```bash
 export NOTION_TOKEN=your_token
-export NOTION_BLOG_DB_ID=0f241680336142f28f627d3fd0e64d5b
-export NOTION_HOME_PAGE_ID=31aeaf4d357d46588aa16815b8822a8f
-export NOTION_RESUME_PAGE_ID=f4f1ed43520f4048998881b1fe54e2a8
+export NOTION_BLOG_DB_ID=your_database_id
+export NOTION_HOME_PAGE_ID=your_home_page_id
+export NOTION_RESUME_PAGE_ID=your_resume_page_id
 ```
 
 3. 启动开发服务器
