@@ -2,9 +2,6 @@ import { notFound } from "next/navigation";
 import { getAllPosts, getPageMarkdown } from "@/lib/notion";
 import { NotionMarkdown } from "@/lib/notion-render";
 
-export const dynamic = "force-static";
-export const dynamicParams = false;
-
 export async function generateStaticParams() {
   const posts = await getAllPosts();
   return posts.map((post) => ({
