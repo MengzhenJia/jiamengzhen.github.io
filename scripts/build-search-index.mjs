@@ -110,8 +110,8 @@ async function main() {
     const slug = getRichText(props.Slug) || slugify(title);
     const summary = getRichText(props.Summary);
     const category = getCategory(props.reference);
-    const date = getDate(props.created, page.created_time);
-    const tags = getTags(props.tags);
+    const date = getDate(props.Created, page.created_time);
+    const tags = getTags(props.Tags);
     const cover = getCover(props.Cover);
 
     return {
