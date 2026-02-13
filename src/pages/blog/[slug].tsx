@@ -1,3 +1,4 @@
+import Head from "next/head";
 import type { GetStaticPaths, GetStaticProps } from "next";
 import { getAllPosts, getPageMarkdown, type Post } from "@/lib/notion";
 import { NotionMarkdown } from "@/lib/notion-render";
@@ -38,17 +39,22 @@ export const getStaticProps: GetStaticProps<BlogDetailProps> = async (
 
 export default function BlogDetailPage({ post, markdown }: BlogDetailProps) {
   return (
-    <div className="container">
-      <section className="hero">
-        <h1>{post.title}</h1>
-        <p>
-          {post.category}
-          {post.tags.length ? ` · ${post.tags.join(" / ")}` : ""}
-        </p>
-      </section>
-      <section className="prose">
-        <NotionMarkdown content={markdown} />
-      </section>
-    </div>
+    <>
+      <Head>
+        <title>{post.title}</title>
+      </Head>
+      <div className="container">
+        <section className="hero">
+          <h1>{post.title}</h1>
+          <p>
+            {post.category}
+            {post.tags.length ? ` · ${post.tags.join(" / ")}` : ""}
+          </p>
+        </section>
+        <section className="prose">
+          <NotionMarkdown content={markdown} />
+        </section>
+      </div>
+    </>
   );
 }
