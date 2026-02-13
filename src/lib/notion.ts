@@ -40,6 +40,7 @@ function getTitle(property: any) {
 
 function getDate(property: any, fallback: string) {
   if (property?.date?.start) return property.date.start as string;
+  if (property?.created_time) return property.created_time as string;
   return fallback;
 }
 
@@ -113,13 +114,13 @@ export async function getAllPosts(): Promise<Post[]> {
 
   return pages.map((page: any) => {
     const props = page.properties || {};
-    const title = getTitle(props.name);
-    const slug = getRichText(props.Slug) || slugify(title);
-    const summary = getRichText(props.Summary);
+    const title = getTitle(props.Name);
+    const slug = slugify(title) || page.id;
+    const summary = "";
     const category = getCategory(props.reference);
     const date = getDate(props.Created, page.created_time);
     const tags = getTags(props.Tags);
-    const cover = getCover(props.Cover);
+    const cover = "";
 
     return {
       id: page.id,
