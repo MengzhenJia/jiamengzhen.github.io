@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import type { Post } from "@/lib/notion";
-import { getSafeCategorySlug } from "@/lib/slug";
 import { TagPill } from "@/components/TagPill";
 
 function formatDate(date: string) {
@@ -20,7 +19,6 @@ function formatDate(date: string) {
 }
 
 export function PostCard({ post }: { post: Post }) {
-  const categorySlug = getSafeCategorySlug(post.category);
   return (
     <article className="post-card fade-up">
       {post.cover ? (
@@ -36,7 +34,7 @@ export function PostCard({ post }: { post: Post }) {
           ) : null}
         </div>
         <h3 className="post-title">
-          <Link href={`/blog/${categorySlug}/${post.slug}`}>{post.title}</Link>
+          <Link href={`/blog/${post.slug}`}>{post.title}</Link>
         </h3>
       </div>
       {post.summary ? <p className="post-summary">{post.summary}</p> : null}

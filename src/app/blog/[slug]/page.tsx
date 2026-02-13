@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { getAllPosts, getPageMarkdown } from "@/lib/notion";
-import { getSafeCategorySlug } from "@/lib/slug";
 import { NotionMarkdown } from "@/lib/notion-render";
 
 export const dynamic = "force-static";
@@ -9,7 +8,6 @@ export const dynamicParams = false;
 export async function generateStaticParams() {
   const posts = await getAllPosts();
   return posts.map((post) => ({
-    category: getSafeCategorySlug(post.category),
     slug: post.slug,
   }));
 }
@@ -17,14 +15,10 @@ export async function generateStaticParams() {
 export default async function BlogDetailPage({
   params,
 }: {
-  params: { category: string; slug: string };
+  params: { slug: string };
 }) {
   const posts = await getAllPosts();
-  const post = posts.find(
-    (item) =>
-      item.slug === params.slug &&
-      getSafeCategorySlug(item.category) === params.category
-  );
+  const post = posts.find((item) => item.slug === params.slug);
 
   if (!post) {
     notFound();

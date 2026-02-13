@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { SearchIndexItem } from "@/lib/search-index";
-import { getSafeCategorySlug } from "@/lib/slug";
 
 function includes(text: string, query: string) {
   return text.toLowerCase().includes(query.toLowerCase());
@@ -70,12 +69,11 @@ export function SearchClient() {
       ) : null}
       <div className="search-results">
         {results.map((post) => {
-          const categorySlug = getSafeCategorySlug(post.category);
           return (
             <Link
               key={post.id}
               className="search-result"
-              href={`/blog/${categorySlug}/${post.slug}`}
+              href={`/blog/${post.slug}`}
             >
               <span className="search-title">{post.title}</span>
               <span className="search-meta">
