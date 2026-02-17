@@ -10,10 +10,6 @@ export default function Home() {
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
           你好，欢迎来到我的世界。
         </h1>
-        <p className="text-base leading-7 text-zinc-600">
-          这里是我的个人网站，包含博客与简介。博客内容来自 Notion，
-          会自动同步更新。
-        </p>
       </div>
       <div className="flex flex-wrap gap-3">
         <Link
