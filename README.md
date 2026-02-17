@@ -1,42 +1,36 @@
-# Notion → GitHub Pages 个人网站
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## 功能
-- 主页、简历、博客列表与详情
-- 分类筛选与站内搜索
-- Notion 作为 CMS，GitHub Actions 定时同步
+## Getting Started
 
-## 本地运行
-1. 安装依赖
-```bash
-npm install
-```
+First, run the development server:
 
-2. 设置环境变量
-```bash
-export NOTION_TOKEN=your_token
-export NOTION_BLOG_DB_ID=your_database_id
-export NOTION_HOME_PAGE_ID=your_home_page_id
-export NOTION_RESUME_PAGE_ID=your_resume_page_id
-```
-
-3. 启动开发服务器
 ```bash
 npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
-## 构建与部署
-```bash
-npm run build
-```
-构建时会生成 `public/search.json`，并导出静态站点到 `out/`。
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Notion 数据库字段
-- `name` (标题)
-- `Status` (状态，需包含 `Published`)
-- `created` (日期)
-- `tags` (标签)
-- `reference` (分类)
-- `Slug` (URL slug)
-- `Summary` (摘要)
-- `Cover` (封面，可选)
-- `Featured` (置顶，可选)
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

@@ -1,157 +1,321 @@
 import { Client } from "@notionhq/client";
-import { NotionToMarkdown } from "notion-to-md";
-import { slugify } from "@/lib/slug";
+import type {
+  BlockObjectResponse,
+  DatabaseObjectResponse,
+  DataSourceObjectResponse,
+  PageObjectResponse,
+  PartialBlockObjectResponse,
+  PartialPageObjectResponse,
+} from "@notionhq/client/build/src/api-endpoints";
 
-export type Post = {
+const notion = new Client({ auth: process.env.NOTION_API_KEY });
+
+const BLOG_DB_ID = process.env.NOTION_BLOG_DB_ID;
+const ABOUT_PAGE_ID = process.env.NOTION_ABOUT_PAGE_ID;
+type QueryDataSourceArgs = Parameters<Client["dataSources"]["query"]>[0];
+
+const BLOG_PROPERTIES = {
+  title: "Name",
+  created: "Created",
+  status: "Status",
+  tags: "Tags",
+  reference: "reference",
+  slug: "Slug",
+};
+
+type BlogPost = {
   id: string;
   title: string;
   slug: string;
-  summary: string;
-  category: string;
-  date: string;
+  createdTime: string;
   tags: string[];
-  cover: string;
+  reference?: string;
 };
 
-const REQUIRED_ENVS = [
-  "NOTION_TOKEN",
-  "NOTION_BLOG_DB_ID",
-  "NOTION_HOME_PAGE_ID",
-  "NOTION_RESUME_PAGE_ID",
-];
+type BlogPostWithBlocks = BlogPost & {
+  blocks: BlockObjectResponse[];
+};
 
-function getRequiredEnv(name: string) {
-  const value = process.env[name];
+let cachedBlogDatabase: DatabaseObjectResponse | null = null;
+let cachedBlogDataSource: DataSourceObjectResponse | null = null;
+
+function requireEnv(value: string | undefined, name: string) {
   if (!value) {
-    throw new Error(`Missing required env: ${name}`);
+    throw new Error(`缺少环境变量 ${name}`);
   }
   return value;
 }
 
-function getRichText(property: any) {
-  if (!property || !Array.isArray(property.rich_text)) return "";
-  return property.rich_text.map((t: any) => t.plain_text).join("");
+function isFullPage(
+  page: PageObjectResponse | PartialPageObjectResponse,
+): page is PageObjectResponse {
+  return "properties" in page;
 }
 
-function getTitle(property: any) {
-  if (!property || !Array.isArray(property.title)) return "";
-  return property.title.map((t: any) => t.plain_text).join("");
+function isPageResult(
+  result:
+    | PageObjectResponse
+    | PartialPageObjectResponse
+    | DataSourceObjectResponse
+    | { object: string },
+): result is PageObjectResponse | PartialPageObjectResponse {
+  return result.object === "page";
 }
 
-function getDate(property: any, fallback: string) {
-  if (property?.date?.start) return property.date.start as string;
-  if (property?.created_time) return property.created_time as string;
-  return fallback;
+function isFullBlock(
+  block: BlockObjectResponse | PartialBlockObjectResponse,
+): block is BlockObjectResponse {
+  return "type" in block;
 }
 
-function getTags(property: any) {
-  if (!property) return [] as string[];
-  if (Array.isArray(property.multi_select)) {
-    return property.multi_select.map((t: any) => t.name);
+function richTextToPlain(richText: Array<{ plain_text: string }>) {
+  return richText.map((item) => item.plain_text).join("");
+}
+
+async function getBlogDatabase() {
+  if (cachedBlogDatabase) {
+    return cachedBlogDatabase;
   }
-  if (property.select?.name) return [property.select.name];
-  return [] as string[];
+  const databaseId = requireEnv(BLOG_DB_ID, "NOTION_BLOG_DB_ID");
+  const database = (await notion.databases.retrieve({
+    database_id: databaseId,
+  })) as DatabaseObjectResponse;
+  cachedBlogDatabase = database;
+  return database;
 }
 
-function getCategory(property: any) {
-  if (!property) return "";
-  if (property.select?.name) return property.select.name as string;
-  if (Array.isArray(property.multi_select) && property.multi_select[0]) {
-    return property.multi_select[0].name as string;
+async function getBlogDataSource() {
+  if (cachedBlogDataSource) {
+    return cachedBlogDataSource;
   }
-  const text = getRichText(property);
-  return text;
+  const database = await getBlogDatabase();
+  const dataSourceId = database.data_sources[0]?.id;
+  if (!dataSourceId) {
+    throw new Error("博客数据库缺少可用 data source");
+  }
+  const dataSource = (await notion.dataSources.retrieve({
+    data_source_id: dataSourceId,
+  })) as DataSourceObjectResponse;
+  cachedBlogDataSource = dataSource;
+  return dataSource;
 }
 
-function getCover(property: any) {
-  if (!property || !Array.isArray(property.files) || !property.files[0]) return "";
-  const file = property.files[0];
-  if (file.type === "external") return file.external.url as string;
-  if (file.type === "file") return file.file.url as string;
-  return "";
-}
-
-function getNotionClient() {
-  REQUIRED_ENVS.forEach(getRequiredEnv);
-  return new Client({ auth: getRequiredEnv("NOTION_TOKEN") });
-}
-
-async function fetchAllPages(notion: Client, databaseId: string) {
+async function queryDataSourceAll(
+  dataSourceId: string,
+  params: Omit<QueryDataSourceArgs, "data_source_id">,
+) {
+  const results: Array<PageObjectResponse | PartialPageObjectResponse> = [];
   let cursor: string | undefined = undefined;
-  const pages: any[] = [];
 
-  while (true) {
-    const response = await notion.databases.query({
-      database_id: databaseId,
+  do {
+    const response = await notion.dataSources.query({
+      data_source_id: dataSourceId,
       start_cursor: cursor,
-      filter: {
-        property: "Status",
-        status: {
-          equals: "Published",
+      ...params,
+    });
+    response.results.forEach((result) => {
+      if (isPageResult(result)) {
+        results.push(result);
+      }
+    });
+    cursor = response.next_cursor ?? undefined;
+  } while (cursor);
+
+  return results;
+}
+
+function getTitle(
+  page: PageObjectResponse,
+  propertyName: string,
+  fallback: string,
+) {
+  const prop = page.properties[propertyName];
+  if (!prop || prop.type !== "title") {
+    return fallback;
+  }
+  return richTextToPlain(prop.title) || fallback;
+}
+
+function getRichText(
+  page: PageObjectResponse,
+  propertyName: string,
+) {
+  const prop = page.properties[propertyName];
+  if (!prop) {
+    return undefined;
+  }
+  if (prop.type === "rich_text") {
+    return richTextToPlain(prop.rich_text) || undefined;
+  }
+  if (prop.type === "title") {
+    return richTextToPlain(prop.title) || undefined;
+  }
+  return undefined;
+}
+
+function getTags(page: PageObjectResponse, propertyName: string) {
+  const prop = page.properties[propertyName];
+  if (!prop || prop.type !== "multi_select") {
+    return [];
+  }
+  return prop.multi_select.map((item) => item.name);
+}
+
+function getCreatedTime(page: PageObjectResponse, propertyName: string) {
+  const prop = page.properties[propertyName];
+  if (!prop) {
+    return page.created_time;
+  }
+  if (prop.type === "created_time") {
+    return prop.created_time;
+  }
+  if (prop.type === "date" && prop.date?.start) {
+    return prop.date.start;
+  }
+  return page.created_time;
+}
+
+function getSlug(page: PageObjectResponse, propertyName: string) {
+  const slug = getRichText(page, propertyName);
+  return slug?.trim() || page.id;
+}
+
+function isPublished(
+  page: PageObjectResponse,
+  propertyName: string,
+  publishedValue: string | null,
+) {
+  if (!publishedValue) {
+    return true;
+  }
+  const prop = page.properties[propertyName];
+  if (!prop) {
+    return true;
+  }
+  if (prop.type === "status") {
+    return prop.status?.name === publishedValue;
+  }
+  if (prop.type === "select") {
+    return prop.select?.name === publishedValue;
+  }
+  return true;
+}
+
+function getPublishedStatusValue(
+  statusProperty: DataSourceObjectResponse["properties"][string] | undefined,
+) {
+  if (!statusProperty) {
+    return null;
+  }
+  if (statusProperty.type === "status") {
+    const optionNames = statusProperty.status.options.map((option) => option.name);
+    return optionNames.includes("Published") ? "Published" : null;
+  }
+  if (statusProperty.type === "select") {
+    const optionNames = statusProperty.select.options.map((option) => option.name);
+    return optionNames.includes("Published") ? "Published" : null;
+  }
+  return null;
+}
+
+export async function getBlogPosts(): Promise<BlogPost[]> {
+  requireEnv(BLOG_DB_ID, "NOTION_BLOG_DB_ID");
+  const dataSource = await getBlogDataSource();
+  const statusProperty = dataSource.properties[BLOG_PROPERTIES.status];
+  const hasStatus = Boolean(statusProperty);
+  const hasCreated = BLOG_PROPERTIES.created in dataSource.properties;
+  const publishedStatus = getPublishedStatusValue(statusProperty);
+  if (hasStatus && !publishedStatus) {
+    return [];
+  }
+
+  const filter: QueryDataSourceArgs["filter"] | undefined = hasStatus && publishedStatus
+    ? statusProperty.type === "select"
+      ? {
+          property: BLOG_PROPERTIES.status,
+          select: {
+            equals: publishedStatus,
+          },
+        }
+      : {
+          property: BLOG_PROPERTIES.status,
+          status: {
+            equals: publishedStatus,
+          },
+        }
+    : undefined;
+
+  const sorts: QueryDataSourceArgs["sorts"] = hasCreated
+    ? [
+        {
+          property: BLOG_PROPERTIES.created,
+          direction: "descending",
         },
-      },
-      sorts: [
+      ]
+    : [
         {
           timestamp: "created_time",
           direction: "descending",
         },
-      ],
-    });
+      ];
 
-    pages.push(...response.results);
-
-    if (!response.has_more) break;
-    cursor = response.next_cursor ?? undefined;
-  }
-
-  return pages;
-}
-
-export async function getAllPosts(): Promise<Post[]> {
-  const notion = getNotionClient();
-  const databaseId = getRequiredEnv("NOTION_BLOG_DB_ID");
-  const pages = await fetchAllPages(notion, databaseId);
-
-  return pages.map((page: any) => {
-    const props = page.properties || {};
-    const title = getTitle(props.Name);
-    const slug = slugify(title) || page.id;
-    const summary = "";
-    const category = getCategory(props.reference);
-    const date = getDate(props.Created, page.created_time);
-    const tags = getTags(props.Tags);
-    const cover = "";
-
-    return {
-      id: page.id,
-      title,
-      slug,
-      summary,
-      category,
-      date,
-      tags,
-      cover,
-    };
+  const results = await queryDataSourceAll(dataSource.id, {
+    filter,
+    sorts,
   });
+
+  return results
+    .filter(isFullPage)
+    .filter((page) =>
+      isPublished(page, BLOG_PROPERTIES.status, publishedStatus),
+    )
+    .map((page) => ({
+      id: page.id,
+      title: getTitle(page, BLOG_PROPERTIES.title, "Untitled"),
+      slug: getSlug(page, BLOG_PROPERTIES.slug),
+      createdTime: getCreatedTime(page, BLOG_PROPERTIES.created),
+      tags: getTags(page, BLOG_PROPERTIES.tags),
+      reference: getRichText(page, BLOG_PROPERTIES.reference),
+    }));
 }
 
-export async function getPostBySlug(category: string, slug: string) {
-  const posts = await getAllPosts();
-  return posts.find((post) => post.slug === slug && post.category === category);
+export async function getBlogPostBySlug(
+  slug: string,
+): Promise<BlogPostWithBlocks | null> {
+  const posts = await getBlogPosts();
+  const post = posts.find((item) => item.slug === slug || item.id === slug);
+  if (!post) {
+    return null;
+  }
+  const blocks = await getPageBlocks(post.id);
+  return {
+    ...post,
+    blocks,
+  };
 }
 
-export async function getPageMarkdown(pageId: string) {
-  const notion = getNotionClient();
-  const n2m = new NotionToMarkdown({ notionClient: notion });
-  const mdBlocks = await n2m.pageToMarkdown(pageId);
-  const mdString = n2m.toMarkdownString(mdBlocks);
-  return mdString.parent;
+export async function getPageBlocks(pageId: string) {
+  const blocks: BlockObjectResponse[] = [];
+  let cursor: string | undefined = undefined;
+
+  do {
+    const response = await notion.blocks.children.list({
+      block_id: pageId,
+      start_cursor: cursor,
+      page_size: 100,
+    });
+    response.results.forEach((block) => {
+      if (isFullBlock(block)) {
+        blocks.push(block);
+      }
+    });
+    cursor = response.next_cursor ?? undefined;
+  } while (cursor);
+
+  return blocks;
 }
 
-export function getHomePageId() {
-  return getRequiredEnv("NOTION_HOME_PAGE_ID");
-}
-
-export function getResumePageId() {
-  return getRequiredEnv("NOTION_RESUME_PAGE_ID");
+export async function getAboutBlocks() {
+  const pageId = requireEnv(ABOUT_PAGE_ID, "NOTION_ABOUT_PAGE_ID");
+  return getPageBlocks(pageId);
 }
