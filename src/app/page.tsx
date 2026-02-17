@@ -5,10 +5,10 @@ export default function Home() {
     <section className="space-y-6">
       <div className="space-y-3">
         <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
-          Personal Site
+          Home
         </p>
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
-          你好，我是 Jia Mengzhen
+          你好，欢迎来到我的世界。
         </h1>
         <p className="text-base leading-7 text-zinc-600">
           这里是我的个人网站，包含博客与简介。博客内容来自 Notion，

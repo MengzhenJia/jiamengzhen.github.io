@@ -18,9 +18,8 @@ export default async function BlogPage() {
 
   return (
     <section className="space-y-8">
-      <header className="space-y-2">
+      <header>
         <h1 className="text-2xl font-semibold tracking-tight">Blog</h1>
-        <p className="text-sm text-zinc-600">来自 Notion 的文章列表</p>
       </header>
 
       {posts.length === 0 ? (
